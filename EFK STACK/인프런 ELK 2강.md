@@ -88,6 +88,14 @@ curl -XGET localhost:9200/classes?pretty
 
 curl -XPOST localhost:9200/classes/class/1/?pretty -d '{"title" : "Algorithm" , "professor" : "John"}'
 
+
+
+curl -XPOST localhost:9200/classes/class/1/?pretty -H 'Content-Type: application/json' -d '{"title" : "Algorithm" , "professor" : "John"}'
+
+
+
+
+
 curl -XGET localhost:9200/classes/class/1/?pretty
 
 
@@ -100,3 +108,220 @@ curl -XPOST localhost:9200/classes/class/1/?pretty -d @파일이름
 
 
 
+
+
+#### 데이터 Update 
+
+curl -XPOST http://localhost:9200/classes/class/1/_update?pretty -H 'Content-Type: application/json' -d '{"doc" : {"unit" : 1}}'
+
+curl -XGET localhost:9200/classes/class/1/?pretty
+
+
+
+업데이트 하는 방법이 하나 더 있다.
+
+script 를 사용할 수 있다.
+
+curl -XPOST http://localhost:9200/classes/class/1/_update?pretty -H 'Content-Type: application/json' -d '{"script" : "ctx._source.unit +=5 "}'
+
+
+
+
+
+#### 벌크
+
+여러개의 doc를 한번에 삽입하는 방법
+
+![image-20200109105600183](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109105600183.png)
+
+명령어는 
+
+curl -XPOST http://localhost:9200/_bulk?pretty --data-binary @파일이름
+
+curl -XPOST http://localhost:9200/_bulk?pretty  -H 'Content-Type: application/json' --data-binary @classes.json
+
+curl -XGET localhost:9200/classes/class/1/?pretty // 제대로 들어간거 확인해보자!!!
+
+
+
+#### 매핑
+
+관계형 데이터 베이스에 스키마랑 동일
+
+
+
+매핑 없으면 위험 
+
+데이트 넣는데, ES 매핑 없으면 날짜인지 모르니 문자로 저장할 수 도 있음
+
+이런 것 때문에 시각화 할 때 제대로 안나올 수 도 있다.
+
+![image-20200109110414630](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109110414630.png)
+
+매핑전에 classes 라는 인덱스를 만들꺼임
+
+curl -XPUT http://localhost:9200/classes
+
+curl -XGET localhost:9200/classes?pretty
+
+
+
+![image-20200109110656052](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109110656052.png)
+
+결과를 보면 매핑자리에 없는 것을 볼 수 있다.
+
+매핑 만들기
+
+curl -XPUT http://localhost:9200/classes/class/_mapping -d @매핑 파일 이름
+
+curl -XPUT 'http://localhost:9200/classes/class/_mappings?pretty' -H 'Content-Type: application/json' -d @classesRating_mapping.json
+
+
+
+curl -H 'Content-Type:application/json' -XPUT 'http://localhost:9200/classes/class/_mapping?include_type_name=true&pretty' -d @classesRating_mapping.json
+
+
+
+![image-20200109112708693](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109112708693.png)
+
+매핑 정보 채워진거 확인
+
+curl -XGET localhost:9200/classes?pretty
+
+
+
+매핑 완료했으니 인덱스에 실제 데이터를 넣어야겠죠
+
+curl -H 'Content-Type: application/json'  -XPOST http://localhost:9200/_bulk?pretty  --data-binary @classes.json
+
+
+
+curl -XGET localhost:9200/classes/class/1/?pretty
+
+
+
+
+
+#### 데이터 조회 
+
+curl -H 'Content-Type: application/json'  -XPOST http://localhost:9200/_bulk?pretty  --data-binary @simple_basketball.json
+
+curl -XGET localhost:9200/basketball/record/_search?pretty
+
+// 점수 30인것 만
+
+curl -XGET 'localhost:9200/basketball/record/_search?q=points:30&pretty'
+
+
+
+curl -H 'Content-Type:application/json' -XGET localhost:9200/basketball/record/_search?pretty -d '{ 
+
+"query" : 
+
+{
+
+"term" : {"points" : 30
+
+}  
+
+}}'
+
+
+
+#### AGGS
+
+조합을 통해 어떤 값을 도출할 때 쓰입니다. 
+
+예를 들때 평균을 구할 때 포맷은
+
+![image-20200109113842883](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109113842883.png)
+
+docs에 데이터 추가하자
+
+curl -XPOST http://localhost:9200/_bulk?pretty  -H 'Content-Type: application/json' --data-binary @simple_basketball.json
+
+평균 aggs 을 보면
+
+![image-20200109114032481](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109114032481.png)
+
+
+
+curl -H 'Content-Type:application/json' -XGET localhost:9200/_search?pretty --data-binary @avg_points_aggs.json
+
+![image-20200109114307971](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109114307971.png)
+
+sum, min, max 등등 실습 가능 모든것을 한번에 도출하고 싶으면
+
+stats를 사용하자
+
+curl -H 'Content-Type:application/json' -XGET localhost:9200/_search?pretty --data-binary @stats_points_aggs.json
+
+
+
+![image-20200109114458729](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109114458729.png)
+
+
+
+#### 어그리게이션 버켓
+
+조합해서 나타내는 방법 뜻한다. 최소 최대 
+
+버켓은 그룹 바이라고 보면 된다. 
+
+
+
+basketball 추가하자
+
+curl -XDELETE localhost:9200/basketball?pretty
+
+curl -XPUT http://localhost:9200/basketball/ 인덱스 만들고
+
+매핑 조회 하자 basketball_mapping.json
+
+![image-20200109114804286](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109114804286.png)
+
+매핑 적용
+
+curl -H 'Content-Type:application/json' -XPUT 'http://localhost:9200/basketball/record/_mapping?include_type_name=true&pretty' -d @basketball_mapping.json
+
+curl -XGET localhost:9200/basketball/?pretty
+
+이제 도큐멘트에 넣을거 보자
+
+twoteam_basketball.json 사용할 거다.
+
+curl -H 'Content-Type: application/json' -XPOST 'http://localhost:9200/_bulk?pretty'   --data-binary @twoteam_basketball.json
+
+curl -XGET localhost:9200/basketball/record/_search?pretty
+
+
+
+
+
+terms_aggs 보자 
+
+size 0인 이유는 우리가 여러개 정보 도출 대신 원하는 정보만 보기위해서
+
+aggs : 어그리게이션
+
+​	players :
+
+​		terms 어그리게이션이고요
+
+
+
+![image-20200109120950582](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109120950582.png)
+
+curl -H 'Content-Type:application/json' -XGET localhost:9200/_search?pretty --data-binary @terms_aggs.json
+
+
+
+![image-20200109121057320](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109121057320.png)
+
+이런 자료가 있으면 팀별로 성적 통계 분석 해보자
+
+각 팀별로 그룹해서 통계보자
+
+![image-20200109121212913](C:\Users\whjung\AppData\Roaming\Typora\typora-user-images\image-20200109121212913.png)
+
+curl -H 'Content-Type:application/json' -XGET localhost:9200/_search?pretty --data-binary @stats_by_team.json
